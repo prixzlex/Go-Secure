@@ -4,35 +4,56 @@ This script provides an easy way for users to encrypt a folder and all its subdi
 **Features**
 
 Encrypts/Decrypts files and directories with a secret key
+
 Encrypts/Decrypts files using the XOR operator and a secret key
+
 Renames encrypted files with a .3vil extension
+
 Sends encryption/decryption key to user's email address
+
 Backs up encryption/decryption key and system information to a database
+
 Multi-threaded for faster encryption/decryption
 
 
 **Requirements**
 
 Python 3.x
+
 Requests module (for sending system information to remote server)
+
 tkinter module (for selecting directories)
+
 hashlib module (for generating SHA-256 hash of secret key)
+
 secrets and string modules (for generating random letters for secret key)
+
 queue module (for multi-threading)
+
 PHP version 7 or higher
+
 dotenv library
+
 MySQL database
+
 Email server (SMTP)
+
 
 
 **Usage**
 
 Run the Python script
+
 Choose whether to encrypt or decrypt files by typing 1 or 2.
+
 Choose the directory to encrypt/decrypt by clicking the OK button in the file dialog box.
+
 Enter an confirm a valid email address when prompted (for encryption only).
+
 Enter the decryption key (for decryption only).
+
 Wait for the encryption/decryption process to complete.
+
 
 **Security**
 
